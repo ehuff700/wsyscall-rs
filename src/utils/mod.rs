@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
-mod wintypes;
-
+pub(crate) mod cache;
+pub mod wintypes;
 use core::arch::asm;
 
 use alloc::string::String;
@@ -13,6 +13,19 @@ use wintypes::{
     FARPROC, HMODULE, IMAGE_DIRECTORY_ENTRY_EXPORT, IMAGE_DOS_HEADER, IMAGE_EXPORT_DIRECTORY,
     LDR_DATA_TABLE_ENTRY, PEB,
 };
+
+#[inline]
+fn strlen(s: *const u8) -> usize {
+    unsafe {
+        let mut i: usize = 0;
+        if !s.is_null() {
+            while *s.add(i) != 0 {
+                i += 1;
+            }
+        }
+        i
+    }
+}
 /// Retrieves the current process environment block (PEB) pointer.
 pub fn NtCurrentPeb() -> *mut PEB {
     let mut peb: *mut PEB;
@@ -55,18 +68,6 @@ pub fn SusGetModuleHandle(module: &str) -> Option<HMODULE> {
 /// # Safety
 /// The safety of this function is not checked at runtime, and depends on the validity of the provided module handle. The passed in handle is assumed to be valid and non null for all reads performed by this function.
 pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: &str) -> FARPROC {
-    fn strlen(s: *const u8) -> usize {
-        unsafe {
-            let mut i: usize = 0;
-            if !s.is_null() {
-                while *s.add(i) != 0 {
-                    i += 1;
-                }
-            }
-            i
-        }
-    }
-
     let dos_header = &*(module.cast::<IMAGE_DOS_HEADER>());
     let nt_header = module
         .add(dos_header.e_lfanew as usize)
@@ -110,6 +111,24 @@ pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: &str) -> FARPROC {
             return function_ptr;
         }
     }
+    None
+}
+
+/// # Safety
+/// The safety of this function is not checked at runtime, and depends on the validity of the provided module handle. The passed in handle is assumed to be valid and non null for all reads performed by this function.
+pub unsafe fn GetSsn(hmodule: HMODULE, fn_name: &str) -> Option<u32> {
+    let addr = SusGetProcAddress(hmodule, fn_name);
+
+    if let Some(addr) = addr {
+        let addr: *const u8 = addr as *const u8;
+        let ssn: u32 = {
+            let byte4 = addr.add(4);
+            let byte5 = addr.add(5);
+            (byte5 as u32) << 8 | (byte4 as u32)
+        };
+        return Some(ssn);
+    }
+
     None
 }
 

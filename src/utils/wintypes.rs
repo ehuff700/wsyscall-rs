@@ -2,6 +2,7 @@
 
 pub type FARPROC = Option<unsafe extern "system" fn() -> isize>;
 pub type HMODULE = *const core::ffi::c_void;
+pub type NTSTATUS = i32;
 pub const IMAGE_DIRECTORY_ENTRY_EXPORT: usize = 0;
 
 #[repr(C)]
