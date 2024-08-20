@@ -121,11 +121,7 @@ pub unsafe fn GetSsn(hmodule: HMODULE, fn_name: &str) -> Option<u32> {
 
     if let Some(addr) = addr {
         let addr: *const u8 = addr as *const u8;
-        let ssn: u32 = {
-            let byte4 = addr.add(4);
-            let byte5 = addr.add(5);
-            (byte5 as u32) << 8 | (byte4 as u32)
-        };
+        let ssn = *addr.add(4) as u32;
         return Some(ssn);
     }
 

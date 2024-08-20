@@ -1,15 +1,13 @@
 #![no_std]
-#![feature(str_from_raw_parts)]
+#![feature(str_from_raw_parts, stmt_expr_attributes)]
 
 use lazy_static::lazy_static;
 use spin::Mutex;
 use utils::cache::ModuleCache;
 extern crate alloc;
+pub const NTDLL_NAME: &str = "ntdll.dll";
 
-#[cfg(feature = "direct")]
-pub mod direct;
-#[cfg(feature = "indirect")]
-mod indirect;
+pub mod syscall;
 pub mod utils;
 
 lazy_static! {
