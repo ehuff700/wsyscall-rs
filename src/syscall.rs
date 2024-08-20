@@ -1,7 +1,7 @@
 #![allow(non_snake_case, non_camel_case_types)]
 
 #[allow(unused)]
-macro_rules! direct_syscall {
+macro_rules! syscall {
     // Base case: no arguments (just SSN)
     ($ssn:expr) => {{
         let status: i32;
@@ -61,14 +61,18 @@ macro_rules! direct_syscall {
         );
         status
     }};
-    ($ssn:expr, $field1:expr, $field2:expr, $field3:expr, $field4:expr) => {{
+    ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr) => {{
         let status: i32;
+        #[cfg(feature = "indirect")]
+        let (ssn, syscall_address) = ($ssn.ssn, $ssn.syscall_address);
+        #[cfg(feature = "direct")]
+        let ssn = $ssn.ssn;
         core::arch::asm!(
             "mov r10, rcx",
             "mov eax, {0:e}",
             #[cfg(feature = "direct")]
             "syscall",
-            in(reg) $ssn,
+            in(reg) ssn,
             in("rcx") $field1,
             in("rdx") $field2,
             in("r8") $field3,
@@ -85,12 +89,12 @@ macro_rules! syscall_imp {
     ($syscall:ident, ($($field_name:ident: $field_type:ty),*)) => {
         #[allow(non_snake_case)]
         pub unsafe fn $syscall($($field_name: $field_type),*) -> $crate::utils::wintypes::NTSTATUS {
-            let ssn = {
+            let syscall = {
                 $crate::SSN_CACHE
                     .lock()
                     .get_or_insert($crate::NTDLL_NAME, stringify!($syscall))
             };
-            direct_syscall!(ssn, $($field_name),*)
+            syscall!(syscall, $($field_name),*)
         }
     };
 }
