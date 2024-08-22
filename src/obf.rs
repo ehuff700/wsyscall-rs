@@ -2,27 +2,17 @@ use crate::SALT;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
+/// Custom wrapper struct for a 32-bit dbj2 hash which is required as the input for some functions.
 pub struct Hash(u32);
 impl Hash {
+    /// Creates a new `Hash`
     pub const fn new(hash: u32) -> Self {
         Self(hash)
     }
 }
 
-impl core::ops::Deref for Hash {
-    type Target = u32;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl core::fmt::Display for Hash {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 #[macro_export]
+/// Converts a string literal (or ident) into a u16 slice and hashes it using a custom implementation of dbj2.
 macro_rules! hash {
     ($item:literal) => {{
         let hash_val = $crate::obf::hash_with_salt_u16($crate::w!($item));
@@ -34,6 +24,7 @@ macro_rules! hash {
     }};
 }
 
+#[inline]
 pub const fn hash_with_salt_u16(input: &[u16]) -> u32 {
     let mut index = 0;
     let mut hash = SALT;
@@ -45,6 +36,8 @@ pub const fn hash_with_salt_u16(input: &[u16]) -> u32 {
     }
     hash
 }
+
+#[inline]
 pub const fn hash_with_salt_u8(input: &[u8]) -> u32 {
     let mut index = 0;
     let mut hash = SALT;
@@ -163,6 +156,19 @@ pub const fn utf16_len(bytes: &[u8]) -> usize {
         len += if code_point <= 0xffff { 1 } else { 2 };
     }
     len
+}
+
+impl core::ops::Deref for Hash {
+    type Target = u32;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl core::fmt::Display for Hash {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 #[cfg(test)]

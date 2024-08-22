@@ -11,6 +11,7 @@ pub struct UNICODE_STRING {
     pub MaximumLength: core::ffi::c_ushort,
     pub Buffer: *mut u16,
 }
+
 #[repr(C)]
 pub struct PEB {
     pub Reserved1: [u8; 2],
@@ -77,7 +78,6 @@ pub struct IMAGE_DOS_HEADER {
 }
 
 #[repr(C)]
-#[cfg(target_arch = "x86_64")]
 pub struct IMAGE_NT_HEADERS64 {
     pub Signature: u32,
     pub FileHeader: IMAGE_FILE_HEADER,
@@ -85,7 +85,6 @@ pub struct IMAGE_NT_HEADERS64 {
 }
 
 #[repr(C)]
-#[cfg(target_arch = "x86")]
 pub struct IMAGE_NT_HEADERS32 {
     pub Signature: u32,
     pub FileHeader: IMAGE_FILE_HEADER,
@@ -105,7 +104,6 @@ pub struct IMAGE_FILE_HEADER {
 }
 
 #[repr(C, packed(4))]
-#[cfg(target_arch = "x86_64")]
 pub struct IMAGE_OPTIONAL_HEADER64 {
     pub Magic: u16,
     pub MajorLinkerVersion: u8,
@@ -140,7 +138,6 @@ pub struct IMAGE_OPTIONAL_HEADER64 {
 }
 
 #[repr(C)]
-#[cfg(target_arch = "x86")]
 pub struct IMAGE_OPTIONAL_HEADER32 {
     pub Magic: u16,
     pub MajorLinkerVersion: u8,

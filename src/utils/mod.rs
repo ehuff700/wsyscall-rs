@@ -58,6 +58,12 @@ pub fn NtCurrentPeb() -> *mut PEB {
     peb
 }
 
+/// Retrieves the module handle for the provided module hash.
+///
+/// This function is semantically equivalent to `GetModuleHandleA/W` from winapi (with minor changes, see `Remarks`), but implemented manually to avoid the function call.
+///
+/// # Remarks
+/// This function is case sensitive to what the list appears like in the `InLoadOrderModuleList`.
 pub fn SusGetModuleHandle(module_hash: Hash) -> Option<HMODULE> {
     let peb = NtCurrentPeb();
     let ldr = unsafe { (*peb).Ldr };
@@ -65,33 +71,35 @@ pub fn SusGetModuleHandle(module_hash: Hash) -> Option<HMODULE> {
     let mut current_module = unsafe { (*ldr).InLoadOrderModuleList.Flink };
     let last_module = unsafe { (*ldr).InLoadOrderModuleList.Blink };
 
-    while current_module != last_module {
+    loop {
         let current_entry = unsafe { &*(current_module.cast::<LDR_DATA_TABLE_ENTRY>()) };
-
         let slice = unsafe {
             core::slice::from_raw_parts(
                 current_entry.BaseDllName.Buffer,
                 (current_entry.BaseDllName.Length as usize) / core::mem::size_of::<u16>(),
             )
         };
-        let hash = hash_with_salt_u16(slice);
-        if hash == *module_hash {
+        if hash_with_salt_u16(slice) == *module_hash {
             return Some(current_entry.DllBase);
+        }
+        if current_module == last_module {
+            break;
         }
         current_module = unsafe { (*current_module).Flink }
     }
     None
 }
+
 /// Retrieves the address of a function within a given module.
 ///
 /// # Safety
 /// The safety of this function is not checked at runtime, and depends on the validity of the provided module handle. The passed in handle is assumed to be valid and non null for all reads performed by this function.
 pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: Hash) -> FARPROC {
-    // Retrieve the IMAGE_EXPORT_DIRECTORY from the module.
     let dos_header = &*(module.cast::<IMAGE_DOS_HEADER>());
     let nt_header = module
         .add(dos_header.e_lfanew as usize)
         .cast::<IMAGE_NT_HEADERS>();
+    // Retrieve the IMAGE_EXPORT_DIRECTORY from the module.
     let export_data_dir = &(*nt_header).OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
     if export_data_dir.Size == 0 || export_data_dir.VirtualAddress == 0 {
         return None;

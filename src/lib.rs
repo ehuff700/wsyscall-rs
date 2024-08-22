@@ -1,20 +1,16 @@
 #![no_std]
-#![feature(str_from_raw_parts, stmt_expr_attributes, const_trait_impl)]
+#![feature(stmt_expr_attributes)]
 include!(concat!(env!("OUT_DIR"), "/salt.rs"));
 
-#[macro_use]
-extern crate lazy_static;
-
-use obf::Hash;
-use spin::Mutex;
+use once_cell::sync::Lazy;
 use utils::cache::Ntdll;
 extern crate alloc;
-pub const NTDLL_HASH: Hash = hash!("ntdll.dll");
 
 pub mod obf;
 pub mod syscall;
 pub mod utils;
 
-lazy_static! {
-    pub static ref SSN_CACHE: Mutex<Ntdll> = Mutex::new(Ntdll::new());
-}
+pub const NTDLL_HASH_LOWER: obf::Hash = hash!("ntdll.dll");
+pub const NTDLL_HASH_UPPER: obf::Hash = hash!("NTDLL.DLL");
+
+pub static SSN_CACHE: Lazy<spin::Mutex<Ntdll>> = Lazy::new(|| spin::Mutex::new(Ntdll::new()));

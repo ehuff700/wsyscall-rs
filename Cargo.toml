@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
+once_cell = { version = "1.19.0", features = ["alloc", "race"] }
 spin = "0.9.8"
 
 [features]
