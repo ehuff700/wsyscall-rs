@@ -3,41 +3,53 @@
 #[allow(unused)]
 macro_rules! syscall {
     // Base case: no arguments (just SSN)
-    ($ssn:expr) => {{
+    ($ssn:ident) => {{
         let status: i32;
+        #[cfg(feature = "indirect")]
+        let (ssn, syscall_address) = ($ssn.ssn, $ssn.syscall_address);
+        #[cfg(feature = "direct")]
+        let ssn = $ssn.ssn;
         core::arch::asm!(
             "mov r10, rcx",
             "mov eax, {0:e}",
             #[cfg(feature = "direct")]
             "syscall",
-            in(reg) $ssn,
+            in(reg) ssn,
             lateout("rax") status,
             options(nostack)
         );
         status
     }};
-    ($ssn:expr, $field1:expr) => {{
+    ($ssn:ident, $field1:expr) => {{
         let status: i32;
+        #[cfg(feature = "indirect")]
+        let (ssn, syscall_address) = ($ssn.ssn, $ssn.syscall_address);
+        #[cfg(feature = "direct")]
+        let ssn = $ssn.ssn;
         core::arch::asm!(
             "mov r10, rcx",
             "mov eax, {0:e}",
             #[cfg(feature = "direct")]
             "syscall",
-            in(reg) $ssn,
+            in(reg) ssn,
             in("rcx") $field1,
             lateout("rax") status,
             options(nostack)
         );
         status
     }};
-    ($ssn:expr, $field1:expr, $field2:expr) => {{
+    ($ssn:ident, $field1:expr, $field2:expr) => {{
         let status: i32;
+        #[cfg(feature = "indirect")]
+        let (ssn, syscall_address) = ($ssn.ssn, $ssn.syscall_address);
+        #[cfg(feature = "direct")]
+        let ssn = $ssn.ssn;
         core::arch::asm!(
             "mov r10, rcx",
             "mov eax, {0:e}",
             #[cfg(feature = "direct")]
             "syscall",
-            in(reg) $ssn,
+            in(reg) ssn,
             in("rcx") $field1,
             in("rdx") $field2,
             lateout("rax") status,
@@ -45,14 +57,18 @@ macro_rules! syscall {
         );
         status
     }};
-    ($ssn:expr, $field1:expr, $field2:expr, $field3:expr) => {{
+    ($ssn:ident, $field1:expr, $field2:expr, $field3:expr) => {{
         let status: i32;
+        #[cfg(feature = "indirect")]
+        let (ssn, syscall_address) = ($ssn.ssn, $ssn.syscall_address);
+        #[cfg(feature = "direct")]
+        let ssn = $ssn.ssn;
         core::arch::asm!(
             "mov r10, rcx",
             "mov eax, {0:e}",
             #[cfg(feature = "direct")]
             "syscall",
-            in(reg) $ssn,
+            in(reg) ssn,
             in("rcx") $field1,
             in("rdx") $field2,
             in("r8") $field3,
@@ -90,9 +106,8 @@ macro_rules! syscall_imp {
         #[allow(non_snake_case)]
         pub unsafe fn $syscall($($field_name: $field_type),*) -> $crate::utils::wintypes::NTSTATUS {
             let syscall = {
-                $crate::SSN_CACHE
-                    .lock()
-                    .get_or_insert($crate::NTDLL_NAME, stringify!($syscall))
+                $crate::SSN_CACHE.lock()
+                    .get_ssn_for_hash($crate::hash!($syscall))
             };
             syscall!(syscall, $($field_name),*)
         }

@@ -3,7 +3,6 @@ pub(crate) mod cache;
 pub mod wintypes;
 use core::arch::asm;
 
-use alloc::string::String;
 #[cfg(target_arch = "x86")]
 use wintypes::IMAGE_NT_HEADERS32 as IMAGE_NT_HEADERS;
 #[cfg(target_arch = "x86_64")]
@@ -13,6 +12,8 @@ use wintypes::{
     FARPROC, HMODULE, IMAGE_DIRECTORY_ENTRY_EXPORT, IMAGE_DOS_HEADER, IMAGE_EXPORT_DIRECTORY,
     LDR_DATA_TABLE_ENTRY, PEB,
 };
+
+use crate::obf::{hash_with_salt_u16, hash_with_salt_u8, Hash};
 
 #[derive(Clone, Copy)]
 pub struct Syscall {
@@ -43,6 +44,7 @@ fn strlen(s: *const u8) -> usize {
         i
     }
 }
+
 /// Retrieves the current process environment block (PEB) pointer.
 pub fn NtCurrentPeb() -> *mut PEB {
     let mut peb: *mut PEB;
@@ -56,7 +58,7 @@ pub fn NtCurrentPeb() -> *mut PEB {
     peb
 }
 
-pub fn SusGetModuleHandle(module: &str) -> Option<HMODULE> {
+pub fn SusGetModuleHandle(module_hash: Hash) -> Option<HMODULE> {
     let peb = NtCurrentPeb();
     let ldr = unsafe { (*peb).Ldr };
 
@@ -72,9 +74,8 @@ pub fn SusGetModuleHandle(module: &str) -> Option<HMODULE> {
                 (current_entry.BaseDllName.Length as usize) / core::mem::size_of::<u16>(),
             )
         };
-        // TODO: make this better by making a direct byte comparison.
-        let module_name = String::from_utf16_lossy(slice);
-        if module_name.eq_ignore_ascii_case(module) {
+        let hash = hash_with_salt_u16(slice);
+        if hash == *module_hash {
             return Some(current_entry.DllBase);
         }
         current_module = unsafe { (*current_module).Flink }
@@ -85,7 +86,8 @@ pub fn SusGetModuleHandle(module: &str) -> Option<HMODULE> {
 ///
 /// # Safety
 /// The safety of this function is not checked at runtime, and depends on the validity of the provided module handle. The passed in handle is assumed to be valid and non null for all reads performed by this function.
-pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: &str) -> FARPROC {
+pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: Hash) -> FARPROC {
+    // Retrieve the IMAGE_EXPORT_DIRECTORY from the module.
     let dos_header = &*(module.cast::<IMAGE_DOS_HEADER>());
     let nt_header = module
         .add(dos_header.e_lfanew as usize)
@@ -94,38 +96,32 @@ pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: &str) -> FARPROC {
     if export_data_dir.Size == 0 || export_data_dir.VirtualAddress == 0 {
         return None;
     }
-
-    let export_dir = module
+    let export_dir = &*(module
         .add(export_data_dir.VirtualAddress as usize)
-        .cast::<IMAGE_EXPORT_DIRECTORY>();
+        .cast::<IMAGE_EXPORT_DIRECTORY>());
 
-    let number_of_names = (*export_dir).NumberOfNames as usize;
-    let rvas = core::slice::from_raw_parts(
-        module
-            .add((*export_dir).AddressOfFunctions as _)
-            .cast::<u32>(),
-        number_of_names,
-    );
-    let names = core::slice::from_raw_parts(
-        module.add((*export_dir).AddressOfNames as _).cast::<u32>(),
-        number_of_names,
-    );
+    let number_of_names = export_dir.NumberOfNames as usize;
 
-    let ordinals = core::slice::from_raw_parts(
-        module
-            .add((*export_dir).AddressOfNameOrdinals as _)
-            .cast::<u16>(),
-        number_of_names,
-    );
+    // Retrieve the base address for the function RVAs, function names, and ordinal numbers.
+    let rva_base = module
+        .add(export_dir.AddressOfFunctions as usize)
+        .cast::<u32>();
+    let name_base = module.add(export_dir.AddressOfNames as usize).cast::<u32>();
+    let ordinals_base = module
+        .add(export_dir.AddressOfNameOrdinals as usize)
+        .cast::<u16>();
 
     for i in 0..number_of_names {
-        let name_ptr = module.add(names[i] as usize).cast::<u8>();
-        let len = strlen(name_ptr);
-        let name = core::str::from_raw_parts(name_ptr, len);
+        // Construct a hash of the current function name.
+        let name_ptr = module.add(*name_base.add(i) as usize).cast::<u8>();
+        let name_bytes = core::slice::from_raw_parts(name_ptr, strlen(name_ptr));
+        let hash = hash_with_salt_u8(name_bytes);
 
-        if name.eq_ignore_ascii_case(fn_name) {
-            let ordinal = ordinals[i] as usize;
-            let function_ptr: FARPROC = core::mem::transmute(module.add(rvas[ordinal] as usize));
+        if *fn_name == hash {
+            // Use the ordinal number to get the function address by adding the rva to the module base.
+            let ordinal = *ordinals_base.add(i) as usize;
+            let function_ptr: FARPROC =
+                core::mem::transmute(module.add(*rva_base.add(ordinal) as usize));
             return function_ptr;
         }
     }
@@ -139,7 +135,7 @@ const SYSCALL_START: (u8, u8, u8) = (0x4C, 0x8B, 0xD1);
 ///
 /// # Safety
 /// The safety of this function is not checked at runtime, and depends on the validity of the provided module handle. The passed in handle is assumed to be valid and non null for all reads performed by this function.
-pub(crate) unsafe fn GetSsn(hmodule: HMODULE, fn_name: &str) -> Option<Syscall> {
+pub(crate) unsafe fn GetSsn(hmodule: HMODULE, fn_name: Hash) -> Option<Syscall> {
     let addr = SusGetProcAddress(hmodule, fn_name);
 
     /// Given a function's address, make sure that it is valid (no hooks or other shenanigans).
@@ -234,6 +230,8 @@ pub(crate) unsafe fn GetSsn(hmodule: HMODULE, fn_name: &str) -> Option<Syscall> 
 
 #[cfg(test)]
 mod tests {
+    use crate::hash;
+
     use super::*;
 
     extern "C" {
@@ -254,8 +252,8 @@ mod tests {
 
     #[test]
     fn test_sus_functions() {
-        let sus_ntdll = SusGetModuleHandle("ntdll.dll");
-        let sus_kernel32 = SusGetModuleHandle("kernel32.dll");
+        let sus_ntdll = SusGetModuleHandle(hash!("ntdll.dll"));
+        let sus_kernel32 = SusGetModuleHandle(hash!("KERNEL32.DLL"));
         assert_ne!(sus_ntdll, None);
         assert_ne!(sus_kernel32, None);
 
@@ -270,7 +268,7 @@ mod tests {
             let test_address_basic =
                 GetProcAddress(basic_kernel32, c"GetProcAddress".as_ptr() as _);
             let test_address_sus: *mut core::ffi::c_void =
-                core::mem::transmute(SusGetProcAddress(basic_kernel32, "GetProcAddress"));
+                core::mem::transmute(SusGetProcAddress(basic_kernel32, hash!("GetProcAddress")));
 
             assert_eq!(test_address_basic, test_address_sus);
             let test_fn: GetProcAddress_t = core::mem::transmute(test_address_sus);
@@ -283,10 +281,10 @@ mod tests {
 
     #[test]
     fn test_get_ssn() {
-        let sus_ntdll = SusGetModuleHandle("ntdll.dll");
+        let sus_ntdll = SusGetModuleHandle(hash!("ntdll.dll"));
         assert_ne!(sus_ntdll, None);
         let sus_ntdll = sus_ntdll.unwrap();
-        let ssn = unsafe { GetSsn(sus_ntdll, "NtQuerySystemInformation") }.unwrap();
+        let ssn = unsafe { GetSsn(sus_ntdll, hash!("NtQuerySystemInformation")) }.unwrap();
         assert_eq!(ssn.ssn, 54);
     }
 }
