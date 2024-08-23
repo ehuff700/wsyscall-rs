@@ -6,6 +6,7 @@ pub type NTSTATUS = i32;
 pub const IMAGE_DIRECTORY_ENTRY_EXPORT: usize = 0;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct UNICODE_STRING {
     pub Length: core::ffi::c_ushort,
     pub MaximumLength: core::ffi::c_ushort,
