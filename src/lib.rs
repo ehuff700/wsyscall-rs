@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(stmt_expr_attributes)]
+#![feature(stmt_expr_attributes, str_from_raw_parts)]
 include!(concat!(env!("OUT_DIR"), "/salt.rs"));
 
 use once_cell::sync::Lazy;
@@ -7,6 +7,7 @@ use utils::cache::Ntdll;
 extern crate alloc;
 
 pub mod obf;
+pub mod sus_functions;
 pub mod syscall;
 pub mod utils;
 

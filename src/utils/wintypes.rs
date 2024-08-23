@@ -1,4 +1,4 @@
-#![allow(non_camel_case_types, clippy::upper_case_acronyms)]
+#![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
 pub type FARPROC = Option<unsafe extern "system" fn() -> isize>;
 pub type HMODULE = *const core::ffi::c_void;
@@ -20,6 +20,7 @@ pub struct PEB {
     pub Reserved2: [u8; 1],
     pub Reserved3: [*mut core::ffi::c_void; 2],
     pub Ldr: *mut PEB_LDR_DATA,
+    pub ProcessParameters: *mut core::ffi::c_void,
 }
 
 #[repr(C)]

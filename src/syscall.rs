@@ -1,5 +1,27 @@
 #![allow(non_snake_case, non_camel_case_types)]
-pub const STACK_ALLOC: usize = 40;
+
+/// 32 bytes of "shadow stack space" + 8 bytes for the return address.
+pub const BASE_STACK_ALLOC: usize = 40;
+
+#[derive(Clone, Copy)]
+/// A structure representing a syscall.
+///
+/// It contains the system service number, and optionally the address of the appropriate syscall instruction for indirect syscalls.
+pub struct Syscall {
+    pub ssn: u32,
+    #[cfg(feature = "indirect")]
+    pub syscall_address: *const u8,
+}
+
+impl Syscall {
+    pub fn new(ssn: u32, #[cfg(feature = "indirect")] syscall_address: *const u8) -> Self {
+        Self {
+            ssn,
+            #[cfg(feature = "indirect")]
+            syscall_address,
+        }
+    }
+}
 
 #[allow(unused)]
 macro_rules! count_fields {
@@ -118,9 +140,7 @@ macro_rules! syscall {
             in("rdx") $field2,
             in("r8") $field3,
             in("r9") $field4,
-            // `rcx` preserves rip
             out("rcx") _,
-            // `r11` preserves rflags
             out("r11") _,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
@@ -150,8 +170,8 @@ macro_rules! syscall {
             out("rcx") _,
             // `r11` preserves rflags
             out("r11") _,
-            stack_alloc = const $crate::syscall::STACK_ALLOC,
-            stack_dealloc = const $crate::syscall::STACK_ALLOC + (8 * LEN),
+            stack_alloc = const $crate::syscall::BASE_STACK_ALLOC,
+            stack_dealloc = const $crate::syscall::BASE_STACK_ALLOC + (8 * LEN),
             options(preserves_flags),
         );
         status

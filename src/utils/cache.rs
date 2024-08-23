@@ -1,8 +1,11 @@
 use alloc::collections::btree_map::BTreeMap;
 
-use crate::{obf::Hash, utils::SusGetModuleHandle, NTDLL_HASH_LOWER, NTDLL_HASH_UPPER};
-
-use super::{GetSsn, Syscall};
+use crate::{
+    obf::Hash,
+    sus_functions::{GetSsn, SusGetModuleHandle},
+    syscall::Syscall,
+    NTDLL_HASH_LOWER, NTDLL_HASH_UPPER,
+};
 
 /// Custom struct to wrap a pointer to ensure Sync + Send, since we don't modify these pointers directly.
 struct PtrWrapper(*const core::ffi::c_void);
