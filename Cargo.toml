@@ -8,7 +8,7 @@ once_cell = { version = "1.19.0", features = ["alloc", "race"] }
 spin = "0.9.8"
 
 [features]
-default = ["direct"]
+default = ["indirect"]
 direct = []
 indirect = []
 
