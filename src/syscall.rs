@@ -27,6 +27,7 @@ impl Syscall {
 }
 
 #[macro_export]
+#[cfg(feature = "direct")]
 /// Emits the actual assembly for the system call using the provided SSN and arguments. See `Remarks` for more information.
 ///
 /// # Note:
@@ -45,12 +46,7 @@ macro_rules! syscall {
     // Base case: no arguments (just SSN)
     ($ssn:ident) => {{
         let status: i32;
-        #[cfg(feature = "indirect")]
-        let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
-        #[cfg(feature = "direct")]
         let ssn = $ssn.ssn;
-
-        #[cfg(feature = "direct")]
         core::arch::asm!(
             "syscall",
             out("rcx") _,
@@ -58,8 +54,130 @@ macro_rules! syscall {
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
+        status
+    }};
+    ($ssn:ident, $field1:expr) => {{
+        let status: i32;
+        let ssn = $ssn.ssn;
 
-        #[cfg(feature = "indirect")]
+        core::arch::asm!(
+            "syscall",
+            inout("r10") $field1 => _,
+            out("rcx") _,
+            out("r11") _,
+            inlateout("rax") ssn => status,
+            options(nostack, preserves_flags)
+        );
+        status
+    }};
+    ($ssn:ident, $field1:expr, $field2:expr) => {{
+        let status: i32;
+        let ssn = $ssn.ssn;
+        core::arch::asm!(
+            "syscall",
+            inout("r10") $field1 => _,
+            inout("rdx") $field2 => _,
+            out("rcx") _,
+            out("r11") _,
+            inlateout("rax") ssn => status,
+            options(nostack, preserves_flags)
+        );
+        status
+    }};
+    ($ssn:ident, $field1:expr, $field2:expr, $field3:expr) => {{
+        let status: i32;
+        let ssn = $ssn.ssn;
+        core::arch::asm!(
+            "syscall",
+            inout("r10") $field1 => _,
+            inout("rdx") $field2 => _,
+            inout("r8") $field3 => _,
+            out("rcx") _,
+            out("r11") _,
+            inlateout("rax") ssn => status,
+            options(nostack, preserves_flags)
+        );
+        status
+    }};
+    ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr) => {{
+        let status: i32;
+        let ssn = $ssn.ssn;
+        core::arch::asm!(
+            "syscall",
+            inout("r10") $field1 => _,
+            inout("rdx") $field2 => _,
+            inout("r8") $field3 => _,
+            inout("r9") $field4 => _,
+            out("rcx") _,
+            out("r11") _,
+            inlateout("rax") ssn => status,
+            options(nostack, preserves_flags)
+        );
+        status
+    }};
+    ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr, $($extra_fields:expr),+) => {{
+        let status: i32;
+        let ssn = $ssn.ssn;
+        // Reverse the order of extra fields and push them onto the stack
+        syscall!(@reverse_and_push $($extra_fields),+);
+
+        core::arch::asm!(
+            "sub rsp, {stack_alloc}",
+            "syscall",
+            "add rsp, {stack_dealloc}",
+            inout("r10") $field1 => _,
+            inout("rdx") $field2 => _,
+            inout("r8") $field3 => _,
+            inout("r9") $field4 => _,
+            inlateout("rax") ssn => status,
+            out("rcx") _,
+            out("r11") _,
+            stack_alloc = const $crate::syscall::BASE_STACK_ALLOC + 8, // +8 for the ret address
+            stack_dealloc = const $crate::syscall::BASE_STACK_ALLOC + 8 + (8 * syscall!(@count_fields $($extra_fields),+)),
+            options(preserves_flags),
+        );
+        status
+    }};
+    (@reverse_and_push $last:expr) => {
+        core::arch::asm!(
+            "push {0:r}",
+            in(reg) $last,
+        );
+    };
+    (@reverse_and_push $first:expr, $($rest:expr),+) => {
+        syscall!(@reverse_and_push $($rest),+); // Recurse with the rest of the fields
+        core::arch::asm!(
+            "push {0:r}",
+            in(reg) $first,
+        );
+    };
+
+    (@count_fields) => (0);
+    (@count_fields $field:expr) => (1);
+    (@count_fields $field:expr, $($rest:expr),+) => (1 + syscall!(@count_fields $($rest),+));
+}
+
+#[macro_export]
+#[cfg(feature = "indirect")]
+/// Emits the actual assembly for the system call using the provided SSN and arguments. See `Remarks` for more information.
+///
+/// # Note:
+/// This macro should not be invoked directly. Instead, use the `syscall_impl!` macro to generate the wrapper function instead.
+///
+/// ## Remarks:
+/// For cases of the direct syscall, the generated assembly will generate an actual "syscall" instruction.
+///
+/// For indirect syscalls, it will jump to the syscall address stored in the [Syscall] struct with a "call" instruction.
+///
+/// The first four arguments are passed directly to registers r10, rdx, r8, and r9 according to MSDN docs,
+/// the rcx and r11 registers are preserved, and the ssn (and eventually the returned status) is passed in the rax register.
+///
+/// For functions with more than four arguments, the remaining arguments are pushed onto the stack in reverse order, and the stack pointer is adjusted appropriately.
+macro_rules! syscall {
+    // Base case: no arguments (just SSN)
+    ($ssn:ident) => {{
+        let status: i32;
+        let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
@@ -72,22 +190,7 @@ macro_rules! syscall {
     }};
     ($ssn:ident, $field1:expr) => {{
         let status: i32;
-        #[cfg(feature = "indirect")]
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
-        #[cfg(feature = "direct")]
-        let ssn = $ssn.ssn;
-
-        #[cfg(feature = "direct")]
-        core::arch::asm!(
-            "syscall",
-            inout("r10") $field1 => _,
-            out("rcx") _,
-            out("r11") _,
-            inlateout("rax") ssn => status,
-            options(nostack, preserves_flags)
-        );
-
-        #[cfg(feature = "indirect")]
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
@@ -101,23 +204,7 @@ macro_rules! syscall {
     }};
     ($ssn:ident, $field1:expr, $field2:expr) => {{
         let status: i32;
-        #[cfg(feature = "indirect")]
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
-        #[cfg(feature = "direct")]
-        let ssn = $ssn.ssn;
-
-        #[cfg(feature = "direct")]
-        core::arch::asm!(
-            "syscall",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            out("rcx") _,
-            out("r11") _,
-            inlateout("rax") ssn => status,
-            options(nostack, preserves_flags)
-        );
-
-        #[cfg(feature = "indirect")]
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
@@ -132,24 +219,8 @@ macro_rules! syscall {
     }};
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr) => {{
         let status: i32;
-        #[cfg(feature = "indirect")]
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
-        #[cfg(feature = "direct")]
-        let ssn = $ssn.ssn;
 
-        #[cfg(feature = "direct")]
-        core::arch::asm!(
-            "syscall",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            out("rcx") _,
-            out("r11") _,
-            inlateout("rax") ssn => status,
-            options(nostack, preserves_flags)
-        );
-
-        #[cfg(feature = "indirect")]
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
@@ -165,25 +236,7 @@ macro_rules! syscall {
     }};
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr) => {{
         let status: i32;
-        #[cfg(feature = "indirect")]
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
-        #[cfg(feature = "direct")]
-        let ssn = $ssn.ssn;
-
-        #[cfg(feature = "direct")]
-        core::arch::asm!(
-            "syscall",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            inout("r9") $field4 => _,
-            out("rcx") _,
-            out("r11") _,
-            inlateout("rax") ssn => status,
-            options(nostack, preserves_flags)
-        );
-
-        #[cfg(feature = "indirect")]
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
@@ -200,30 +253,10 @@ macro_rules! syscall {
     }};
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr, $($extra_fields:expr),+) => {{
         let status: i32;
-        #[cfg(feature = "indirect")]
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
-        #[cfg(feature = "direct")]
-        let ssn = $ssn.ssn;
         // Reverse the order of extra fields and push them onto the stack
         syscall!(@reverse_and_push $($extra_fields),+);
 
-        #[cfg(feature = "direct")]
-        core::arch::asm!(
-            "sub rsp, {stack_alloc}",
-            "syscall",
-            "add rsp, {stack_dealloc}",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            inout("r9") $field4 => _,
-            inlateout("rax") ssn => status,
-            out("rcx") _,
-            out("r11") _,
-            stack_alloc = const $crate::syscall::BASE_STACK_ALLOC + 8, // +8 for the ret address
-            stack_dealloc = const $crate::syscall::BASE_STACK_ALLOC + 8 + (8 * syscall!(@count_fields $($extra_fields),+)),
-            options(preserves_flags),
-    );
-        #[cfg(feature = "indirect")]
         core::arch::asm!(
             "sub rsp, {stack_alloc}",
             "call {}",
