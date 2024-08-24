@@ -15,12 +15,14 @@ impl Hash {
 /// Converts a string literal (or ident) into a u16 slice and hashes it using a custom implementation of dbj2.
 macro_rules! hash {
     ($item:literal) => {{
-        let hash_val = $crate::obf::hash_with_salt_u16($crate::w!($item));
-        $crate::obf::Hash::new(hash_val)
+        const SLICE: &[u16] = $crate::w!($item);
+        const HASH: u32 = $crate::obf::hash_with_salt_u16(SLICE);
+        $crate::obf::Hash::new(HASH)
     }};
     ($item:ident) => {{
-        let hash_val = $crate::obf::hash_with_salt_u16($crate::w!(stringify!($item)));
-        $crate::obf::Hash::new(hash_val)
+        const SLICE: &[u16] = $crate::w!(stringify!($item));
+        const HASH: u32 = $crate::obf::hash_with_salt_u16(SLICE);
+        $crate::obf::Hash::new(HASH)
     }};
 }
 
