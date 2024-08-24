@@ -1,5 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
+use alloc::{string::String, vec::Vec};
+
 pub type FARPROC = Option<unsafe extern "system" fn() -> isize>;
 pub type HMODULE = *const core::ffi::c_void;
 pub type NTSTATUS = i32;
@@ -193,4 +195,59 @@ pub struct IMAGE_EXPORT_DIRECTORY {
     pub AddressOfFunctions: u32,
     pub AddressOfNames: u32,
     pub AddressOfNameOrdinals: u32,
+}
+
+#[derive(Debug)]
+/// A container for a Windows Unicode string.
+///
+/// Windows strings are typically represented as Unicode strings.
+pub struct WindowsString {
+    pub(crate) bytes: Vec<u16>,
+}
+
+impl WindowsString {
+    pub(crate) fn new(bytes: Vec<u16>) -> Self {
+        WindowsString { bytes }
+    }
+
+    pub(crate) fn from_slice(bytes: &[u16]) -> Self {
+        WindowsString::new(bytes.to_vec())
+    }
+    /// Creates a WindowsString from a UTF-8 encoded string.
+    pub fn from_string(string: &str) -> Self {
+        let bytes: Vec<u16> = string.encode_utf16().collect();
+        Self::new(bytes)
+    }
+    /// Pushes a single u16 to the end of the buffer.
+    pub fn push_u16(&mut self, b: u16) {
+        self.bytes.push(b);
+    }
+
+    /// Pushes a string to the end of the buffer.
+    pub fn push_str(&mut self, s: &str) {
+        self.bytes.extend(s.encode_utf16());
+    }
+
+    /// Gets a reference to the underlying buffer contents.
+    pub fn as_bytes(&self) -> &[u16] {
+        &self.bytes
+    }
+
+    /// Returns a pointer to the buffers contents.
+    pub fn as_ptr(&self) -> *const u16 {
+        self.bytes.as_ptr()
+    }
+
+    /// Converts the WindowsString into a null-terminated UTF-16 string.
+    pub fn into_nt_pointer(mut self) -> *const u16 {
+        self.bytes.push(0); // null-terminate
+        self.bytes.as_ptr()
+    }
+}
+
+impl core::fmt::Display for WindowsString {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let string = String::from_utf16_lossy(&self.bytes);
+        write!(f, "{}", string)
+    }
 }

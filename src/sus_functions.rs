@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::arch::asm;
 
 #[cfg(target_arch = "x86")]
@@ -12,6 +12,7 @@ use crate::utils::wintypes::{
     LDR_DATA_TABLE_ENTRY, PEB,
 };
 
+use crate::wintypes::WindowsString;
 use crate::{
     obf::{hash_with_salt_u16, hash_with_salt_u8, Hash},
     syscall::Syscall,
@@ -45,10 +46,10 @@ pub fn NtCurrentPeb() -> *mut PEB {
 
 /// Retrieves the value of the environment variable with the specified key.
 ///
-/// Note: This function only supports UTF-8 encoding.
-///
-/// TODO: evaluate whether or not UTF-16 support is needed...
-pub fn SusGetEnvironmentVariable(key: &str) -> Option<String> {
+/// # Note:
+/// This function **is case sensitive**.
+pub fn SusGetEnvironmentVariable(key: &str) -> Option<WindowsString> {
+    let key_bytes = key.encode_utf16().collect::<Vec<u16>>();
     let peb = NtCurrentPeb();
     let rtl_process_parameters = unsafe { (*peb).ProcessParameters };
     // 0x80 is the offset to the ProcessParameters field in the PEB on x64
@@ -81,11 +82,14 @@ pub fn SusGetEnvironmentVariable(key: &str) -> Option<String> {
             environment_size / core::mem::size_of::<u16>(),
         )
     };
-    let environment_block_str = String::from_utf16_lossy(environment_slice);
-    for key_value in environment_block_str.split("\0") {
-        let (curr_key, value) = unsafe { key_value.split_once('=').unwrap_unchecked() };
-        if curr_key.eq_ignore_ascii_case(key) {
-            return Some(value.to_string());
+    let environment_block_str = WindowsString::from_slice(environment_slice);
+    for key_value in environment_block_str.bytes.split(|c| *c == 0) {
+        if let Some((curr_key, value)) = key_value.split_once(|c| *c == '=' as u16) {
+            if curr_key.eq(&key_bytes) {
+                return Some(WindowsString::from_slice(value));
+            }
+        } else {
+            continue;
         }
     }
     None
@@ -333,14 +337,12 @@ mod tests {
         let print = SusGetEnvironmentVariable("USERPROFILE");
         assert!(print.is_some());
         let print = print.unwrap();
-        assert!(print.starts_with("C:\\Users"));
+        assert!(print
+            .bytes
+            .starts_with(&"C:\\Users".encode_utf16().collect::<Vec<u16>>()));
         std::println!("{}", print);
 
-        // Assert case insensitive works
         let test = SusGetEnvironmentVariable("localappdata");
-        assert!(test.is_some());
-        let test = test.unwrap();
-        assert!(test.starts_with("C:\\Users") && test.ends_with("AppData\\Local"));
-        std::println!("{}", test);
+        assert!(test.is_none());
     }
 }
