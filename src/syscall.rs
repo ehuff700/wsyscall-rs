@@ -27,6 +27,20 @@ impl Syscall {
 }
 
 #[macro_export]
+/// Emits the actual assembly for the system call using the provided SSN and arguments. See `Remarks` for more information.
+///
+/// # Note:
+/// This macro should not be invoked directly. Instead, use the `syscall_impl!` macro to generate the wrapper function instead.
+///
+/// ## Remarks:
+/// For cases of the direct syscall, the generated assembly will generate an actual "syscall" instruction.
+///
+/// For indirect syscalls, it will jump to the syscall address stored in the [Syscall] struct with a "call" instruction.
+///
+/// The first four arguments are passed directly to registers r10, rdx, r8, and r9 according to MSDN docs,
+/// the rcx and r11 registers are preserved, and the ssn (and eventually the returned status) is passed in the rax register.
+///
+/// For functions with more than four arguments, the remaining arguments are pushed onto the stack in reverse order, and the stack pointer is adjusted appropriately.
 macro_rules! syscall {
     // Base case: no arguments (just SSN)
     ($ssn:ident) => {{
@@ -251,6 +265,44 @@ macro_rules! syscall {
 }
 
 #[macro_export]
+/// This macro is what you use to define a new system call.
+///
+/// The first argument is the name of the system call, and the second argument is a tuple containing the field names and their types.
+///
+/// ```rust
+///    use wsyscall_rs::syscall_imp;
+///     
+///    // Defines a new system call named NtQuerySystemInformation, with four arguments as shown.
+///    syscall_imp!(NtQuerySystemInformation, (
+///            SystemInformationClass: u32,
+///            SystemInformation: *mut core::ffi::c_void,
+///            SystemInformationLength: u32,
+///            ReturnLength: *mut u32
+///        ));
+///   
+///   #[allow(non_upper_case_globals)]
+///   const SystemBasicInformation: u32 = 0; // Corresponds to the SYSTEM_INFORMATION_CLASS enum.
+///   
+///   fn test_nt_query_system_information() {
+///     const SYSTEM_BASIC_INFORMATION_SIZE: usize = 64usize;
+///     let mut system_info = [0u8; SYSTEM_BASIC_INFORMATION_SIZE]; // size of SYSTEM_BASIC_INFORMATION structure.
+///       unsafe {
+///           let status = NtQuerySystemInformation(
+///               SystemBasicInformation,
+///               &mut system_info as *mut _ as *mut _,
+///               SYSTEM_BASIC_INFORMATION_SIZE as u32,
+///               core::ptr::null_mut(),
+///           );
+///           assert_eq!(status, 0);
+///           // offset of NumberOfProcessors field in the SYSTEM_BASIC_INFORMATION structure.
+///           let NumberOfProcessors = unsafe { *(system_info.as_ptr().add(0x38) as *const i8) };
+///           let Reserved = unsafe { *(system_info.as_ptr() as *const u32) };
+///           assert!(NumberOfProcessors > 0);
+///           assert_eq!(Reserved, 0);
+///       }
+///    }
+///
+/// ```
 macro_rules! syscall_imp {
     ($syscall:ident, ($($field_name:ident: $field_type:ty),*)) => {
         #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -324,6 +376,7 @@ mod tests {
             }
             assert_eq!(status, 0);
             assert!(system_info.NumberOfProcessors > 0);
+            assert_eq!(system_info.Reserved, 0);
         }
     }
 
