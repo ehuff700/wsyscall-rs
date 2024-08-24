@@ -6,19 +6,19 @@
 /// The third parameter is a tuple containing the function arguments, and types, and it optionally includes a return type.
 ///
 /// ```rust
-/// use wsyscall_rs::dynamic_invoke_impl;
+/// use wsyscall_rs::dynamic_invoke_imp;
 /// fn test_dynamic_invoke() {
 ///     // example of no return type
-///     dynamic_invoke_impl!("KERNEL32.DLL", SetLastError, (dwerrorcode: u32));
+///     dynamic_invoke_imp!("KERNEL32.DLL", SetLastError, (dwerrorcode: u32));
 ///     // example of including return type
-///     dynamic_invoke_impl!("KERNEL32.DLL", GetLastError, () -> u32);
+///     dynamic_invoke_imp!("KERNEL32.DLL", GetLastError, () -> u32);
 ///     // Reset the error code to 0 for testing purposes
 ///     unsafe { SetLastError(0) };
 ///     // Check if the error code was reset correctly
 ///     assert_eq!(unsafe { GetLastError() }, 0);
 /// }
 /// ```
-macro_rules! dynamic_invoke_impl {
+macro_rules! dynamic_invoke_imp {
     ($module_name:literal, $fnname:ident, ($($field_name:ident: $field_type:ty),*) -> $ret:ty) => {
         #[allow(non_snake_case)]
         pub unsafe fn $fnname($($field_name: $field_type),*) -> $ret {
@@ -44,9 +44,9 @@ mod tests {
     extern crate std;
 
     #[test]
-    fn test_dynamic_invoke_impl() {
-        dynamic_invoke_impl!("KERNEL32.DLL", SetLastError, (dwerrorcode: u32));
-        dynamic_invoke_impl!("KERNEL32.DLL", GetLastError, () -> u32);
+    fn test_dynamic_invoke_imp() {
+        dynamic_invoke_imp!("KERNEL32.DLL", SetLastError, (dwerrorcode: u32));
+        dynamic_invoke_imp!("KERNEL32.DLL", GetLastError, () -> u32);
         unsafe { SetLastError(1337) };
         let ret = unsafe { GetLastError() };
         assert_eq!(ret, 1337);

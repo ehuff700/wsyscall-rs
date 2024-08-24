@@ -2,13 +2,20 @@
 name = "wsyscall-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Infamous <ehuff007@gmail.com>"]
+description = "A no-std compatible Rust library for performing direct/indirect syscalls, as well as dynamic function invocation to prevent imports from appearing in the IAT."
+repository = "https://github.com/ehuff700/wsyscall-rs"
+readme = "README.md"
+keywords = ["windows", "direct syscall", "indirect syscall", "dinvoke"]
+license = "MIT OR Apache-2.0"
+categories = ["no-std", "os"]
 
 [dependencies]
 once_cell = { version = "1.19.0", features = ["alloc", "race"] }
 spin = "0.9.8"
 
 [features]
-default = ["indirect"]
+default = ["direct"]
 direct = []
 indirect = []
 

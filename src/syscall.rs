@@ -52,7 +52,6 @@ macro_rules! syscall {
 
         #[cfg(feature = "direct")]
         core::arch::asm!(
-            #[cfg(feature = "direct")]
             "syscall",
             out("rcx") _,
             out("r11") _,
@@ -80,7 +79,6 @@ macro_rules! syscall {
 
         #[cfg(feature = "direct")]
         core::arch::asm!(
-            #[cfg(feature = "direct")]
             "syscall",
             inout("r10") $field1 => _,
             out("rcx") _,
@@ -110,7 +108,6 @@ macro_rules! syscall {
 
         #[cfg(feature = "direct")]
         core::arch::asm!(
-            #[cfg(feature = "direct")]
             "syscall",
             inout("r10") $field1 => _,
             inout("rdx") $field2 => _,
@@ -142,7 +139,6 @@ macro_rules! syscall {
 
         #[cfg(feature = "direct")]
         core::arch::asm!(
-            #[cfg(feature = "direct")]
             "syscall",
             inout("r10") $field1 => _,
             inout("rdx") $field2 => _,
@@ -227,6 +223,7 @@ macro_rules! syscall {
             stack_dealloc = const $crate::syscall::BASE_STACK_ALLOC + 8 + (8 * syscall!(@count_fields $($extra_fields),+)),
             options(preserves_flags),
     );
+        #[cfg(feature = "indirect")]
         core::arch::asm!(
             "sub rsp, {stack_alloc}",
             "call {}",
@@ -306,7 +303,7 @@ macro_rules! syscall {
 macro_rules! syscall_imp {
     ($syscall:ident, ($($field_name:ident: $field_type:ty),*)) => {
         #[allow(non_snake_case, clippy::too_many_arguments)]
-        pub unsafe extern "system" fn $syscall($($field_name: $field_type),*) -> $crate::utils::wintypes::NTSTATUS {
+        pub unsafe extern "system" fn $syscall($($field_name: $field_type),*) -> $crate::wintypes::NTSTATUS {
             let syscall = {
                 $crate::SSN_CACHE.lock()
                     .get_ssn_for_hash($crate::hash!($syscall))
