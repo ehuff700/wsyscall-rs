@@ -1,5 +1,6 @@
 #![no_std]
-#![feature(str_from_raw_parts, slice_split_once)]
+#![feature(str_from_raw_parts, slice_split_once, try_trait_v2)]
+
 //! # wsyscall_rs
 //!
 //! `wsyscall_rs` is a Rust library designed to facilitate dynamic invocation, or indirect/direct invocation of Windows system calls.

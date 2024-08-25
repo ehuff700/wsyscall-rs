@@ -1,6 +1,9 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
-use core::fmt::UpperHex;
+use core::{
+    fmt::UpperHex,
+    ops::{ControlFlow, FromResidual},
+};
 
 use alloc::{string::String, vec::Vec};
 
@@ -214,6 +217,42 @@ impl UpperHex for NTSTATUS {
     }
 }
 
+impl core::ops::Try for NTSTATUS {
+    type Output = ();
+    type Residual = NTERROR;
+
+    fn from_output(_output: Self::Output) -> Self {
+        NTSTATUS(0)
+    }
+
+    fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+        if self.0 == 0 {
+            ControlFlow::Continue(())
+        } else {
+            ControlFlow::Break(NTERROR(self.0))
+        }
+    }
+}
+
+impl<T, E> FromResidual<NTERROR> for Result<T, E>
+where
+    E: From<NTERROR>,
+{
+    fn from_residual(residual: NTERROR) -> Self {
+        Err(E::from(residual))
+    }
+}
+
+impl FromResidual<NTERROR> for NTSTATUS {
+    fn from_residual(residual: NTERROR) -> Self {
+        NTSTATUS(residual.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Helper struct for all NTSTATUS codes other than STATUS_SUCCESS.
+pub struct NTERROR(pub i32);
+
 #[derive(Debug)]
 /// A container for a Windows Unicode string.
 ///
@@ -266,5 +305,26 @@ impl core::fmt::Display for WindowsString {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let string = String::from_utf16_lossy(&self.bytes);
         write!(f, "{}", string)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_error() -> Result<(), NTERROR> {
+        let nt_error = NTSTATUS(0x000001);
+        Ok(nt_error?)
+    }
+
+    fn test_ok() -> Result<(), NTERROR> {
+        let nt_ok = STATUS_SUCCESS;
+        Ok(nt_ok?)
+    }
+
+    #[test]
+    fn test_nt_error() {
+        assert_eq!(test_error(), Err(NTERROR(0x000001)));
+        assert_eq!(test_ok(), Ok(()));
     }
 }
