@@ -323,7 +323,7 @@ macro_rules! syscall {
 ///               SYSTEM_BASIC_INFORMATION_SIZE as u32,
 ///               core::ptr::null_mut(),
 ///           );
-///           assert_eq!(status, 0);
+///           assert_eq!(status, wsyscall_rs::wintypes::STATUS_SUCCESS);
 ///           // offset of NumberOfProcessors field in the SYSTEM_BASIC_INFORMATION structure.
 ///           let NumberOfProcessors = unsafe { *(system_info.as_ptr().add(0x38) as *const i8) };
 ///           let Reserved = unsafe { *(system_info.as_ptr() as *const u32) };
@@ -341,7 +341,7 @@ macro_rules! syscall_imp {
                 $crate::SSN_CACHE.lock()
                     .get_ssn_for_hash($crate::hash!($syscall))
             };
-            $crate::syscall!(syscall, $($field_name),*)
+            $crate::wintypes::NTSTATUS($crate::syscall!(syscall, $($field_name),*))
         }
     };
 
@@ -351,9 +351,12 @@ macro_rules! syscall_imp {
 mod tests {
     extern crate std;
     use core::ffi::{c_char, c_ulong};
-    use std::{eprintln, println};
+    use std::println;
 
-    use crate::utils::wintypes::{NTSTATUS, UNICODE_STRING};
+    use crate::{
+        utils::wintypes::{NTSTATUS, UNICODE_STRING},
+        wintypes::STATUS_SUCCESS,
+    };
     use alloc::vec::Vec;
 
     #[repr(C)]
@@ -394,17 +397,16 @@ mod tests {
                 core::ptr::null_mut(),
             );
 
-            if status == 0 {
+            if status == STATUS_SUCCESS {
                 // STATUS_SUCCESS
                 println!("Number of Processors: {}", system_info.NumberOfProcessors);
                 println!("return: {:?}", system_info)
-            } else {
-                eprintln!(
-                    "NtQuerySystemInformation failed with status: 0x{:X}",
-                    status
-                );
             }
-            assert_eq!(status, 0);
+            assert_eq!(
+                status, STATUS_SUCCESS,
+                "NtQuerySystemInformation failed with status: 0x{:X}",
+                status
+            );
             assert!(system_info.NumberOfProcessors > 0);
             assert_eq!(system_info.Reserved, 0);
         }
@@ -479,9 +481,8 @@ mod tests {
         unsafe {
             let mut io_status = core::mem::zeroed::<IO_STATUS_BLOCK>();
             let mut oa = core::mem::zeroed::<OBJECT_ATTRIBUTES>();
-            let path = "\\??\\E:\\vscodeprojects\\wsyscall-rs\\test.txt\0"
-                .encode_utf16()
-                .collect::<Vec<u16>>();
+            let path = concat!("\\??\\", env!("CARGO_MANIFEST_DIR"), "\\test.txt\0");
+            let path = path.encode_utf16().collect::<Vec<u16>>();
             let mut unicode_string = core::mem::zeroed::<UNICODE_STRING>();
             RtlInitUnicodeString(&mut unicode_string, path.as_ptr());
 
@@ -493,7 +494,7 @@ mod tests {
                 core::ptr::null_mut(),
             );
 
-            let ret: i32 = NtCreateFile(
+            let ret = NtCreateFile(
                 &mut handle,
                 FILE_GENERIC_WRITE | DELETE,
                 &mut oa,
@@ -506,8 +507,12 @@ mod tests {
                 core::ptr::null_mut(),
                 0,
             );
-            assert_eq!(ret, 0, "NtCreateFile failed with status: 0x{:X}", ret);
-            assert_eq!(NtClose(handle), 0);
+            assert_eq!(
+                ret, STATUS_SUCCESS,
+                "NtCreateFile failed with status: 0x{:X}",
+                ret
+            );
+            assert_eq!(NtClose(handle), STATUS_SUCCESS);
         }
     }
 }

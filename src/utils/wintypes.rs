@@ -1,11 +1,13 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
+use core::fmt::UpperHex;
+
 use alloc::{string::String, vec::Vec};
 
 pub type FARPROC = Option<unsafe extern "system" fn() -> isize>;
 pub type HMODULE = *const core::ffi::c_void;
-pub type NTSTATUS = i32;
 pub const IMAGE_DIRECTORY_ENTRY_EXPORT: usize = 0;
+pub const STATUS_SUCCESS: NTSTATUS = NTSTATUS(0x00000000);
 
 #[repr(C)]
 #[derive(Debug)]
@@ -195,6 +197,21 @@ pub struct IMAGE_EXPORT_DIRECTORY {
     pub AddressOfFunctions: u32,
     pub AddressOfNames: u32,
     pub AddressOfNameOrdinals: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct NTSTATUS(pub i32);
+impl core::ops::Deref for NTSTATUS {
+    type Target = i32;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl UpperHex for NTSTATUS {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
 }
 
 #[derive(Debug)]
