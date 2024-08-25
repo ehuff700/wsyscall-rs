@@ -336,6 +336,7 @@ macro_rules! syscall {
 macro_rules! syscall_imp {
     ($syscall:ident, ($($field_name:ident: $field_type:ty),*)) => {
         #[allow(non_snake_case, clippy::too_many_arguments)]
+        #[must_use = "NTSTATUS values must be propogated up to the caller with `?` or handled appropriately."]
         pub unsafe extern "system" fn $syscall($($field_name: $field_type),*) -> $crate::wintypes::NTSTATUS {
             let syscall = {
                 $crate::SSN_CACHE.lock()
