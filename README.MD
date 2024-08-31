@@ -1,8 +1,10 @@
 # wsyscall_rs
 `wsyscall_rs` is a Rust library designed to facilitate dynamic invocation, or indirect/direct invocation of Windows systems.
 ## Features
-- **Dynamic Invocation of System Calls:** The `dynamic_invoke_imp` macro allows you to dynamically invoke Windows API tions from loaded modules such as `KERNEL32.DLL`, without needing to statically link against these functions.
+- **Dynamic Invocation of System Calls:** The `dynamic_invoke_imp` macro allows you to dynamically invoke Windows API functions from loaded modules such as `KERNEL32.DLL`, without needing to statically link against these functions.
 - **Custom System Call Wrappers:** The `syscall_imp` macro creates a wrapper over an Nt system call using native system callers and raw assembly. It supports direct and indirect syscalls with the corresponding feature (direct is default).
+- **API Hashing:** All notable functions and both of the macros implement API hashing at compile time using an adjusted version on dbj2 with a random salt for obfuscation.
+
 ## Usage
 For more usage information, please see the documentation for the macros mentioned above.
 ## Safety and Best Practices
