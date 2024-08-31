@@ -28,6 +28,8 @@ pub struct PEB {
     pub Reserved3: [*mut core::ffi::c_void; 2],
     pub Ldr: *mut PEB_LDR_DATA,
     pub ProcessParameters: *mut core::ffi::c_void,
+    pub SubSystemData: *mut core::ffi::c_void,
+    pub ProcessHeap: *mut core::ffi::c_void,
 }
 
 #[repr(C)]
