@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 categories = ["no-std", "os"]
 
 [dependencies]
-once_cell = { version = "1.19.0", default-features = false, features = ["alloc", "critical-section", "race"] }
+lazy_static = { version = "1.5.0", default-features = false, features = ["spin_no_std"] }
 spin = "0.9.8"
 
 [features]

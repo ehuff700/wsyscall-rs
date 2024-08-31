@@ -28,8 +28,8 @@
 //!
 //! at your option.
 include!(concat!(env!("OUT_DIR"), "/salt.rs"));
-
-use once_cell::sync::Lazy;
+use lazy_static::lazy_static;
+use spin::Mutex;
 use utils::cache::{DynamicCache, Ntdll};
 extern crate alloc;
 
@@ -48,11 +48,12 @@ pub const NTDLL_HASH_UPPER: obf::Hash = hash!("NTDLL.DLL");
 /// A hash for kernel32.dll, exactly how it appears in the InLoadOrderModuleList.
 pub const KERNEL32_HASH: obf::Hash = hash!("KERNEL32.DLL");
 
+lazy_static! {
 /// A global cache for storing system calls from Ntdll and their corresponding SSNs.
-pub static SSN_CACHE: Lazy<spin::Mutex<Ntdll>> = Lazy::new(|| spin::Mutex::new(Ntdll::new()));
+pub static ref SSN_CACHE: Mutex<Ntdll> = Mutex::new(Ntdll::new());
 /// A global cache for storing dynamically loaded functions.
-pub static DYNAMIC_CACHE: Lazy<spin::Mutex<DynamicCache>> =
-    Lazy::new(|| spin::Mutex::new(DynamicCache::new()));
+pub static ref DYNAMIC_CACHE: Mutex<DynamicCache> = Mutex::new(DynamicCache::new());
+}
 
 #[cfg(all(feature = "indirect", feature = "direct"))]
 compile_error!("indirect and direct syscalls cannot be enabled at the same time. Please enable only one of them.");
