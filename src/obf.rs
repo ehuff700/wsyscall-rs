@@ -15,12 +15,14 @@ impl Hash {
 /// Converts a string literal (or ident) into a u16 slice and hashes it using a custom implementation of dbj2.
 macro_rules! hash {
     ($item:literal) => {{
-        const SLICE: &[u16] = $crate::w!($item);
+        const U8_SLICE: &[u8] = $item.as_bytes();
+        const SLICE: &[u16] = $crate::w!(U8_SLICE);
         const HASH: u32 = $crate::obf::hash_with_salt_u16(SLICE);
         $crate::obf::Hash::new(HASH)
     }};
     ($item:ident) => {{
-        const SLICE: &[u16] = $crate::w!(stringify!($item));
+        const U8_SLICE: &[u8] = stringify!($item).as_bytes();
+        const SLICE: &[u16] = $crate::w!(U8_SLICE);
         const HASH: u32 = $crate::obf::hash_with_salt_u16(SLICE);
         $crate::obf::Hash::new(HASH)
     }};
@@ -56,15 +58,17 @@ pub const fn hash_with_salt_u8(input: &[u8]) -> u32 {
 /// Pulled from the `windows-sys` crate with a few modifications.
 #[macro_export]
 macro_rules! w {
+    ($s:literal) => {{
+        const INPUT_SLICE: &[u8] = $s.as_bytes();
+        $crate::w!(INPUT_SLICE)
+    }};
     ($s:expr) => {{
-        const INPUT: &[u8] = $s.as_bytes();
-        const OUTPUT_LEN: usize = $crate::obf::utf16_len(INPUT);
+        const OUTPUT_LEN: usize = $crate::obf::utf16_len($s);
         const OUTPUT: &[u16; OUTPUT_LEN] = {
             let mut buffer = [0; OUTPUT_LEN];
             let mut input_pos = 0;
             let mut output_pos = 0;
-            while let Some((mut code_point, new_pos)) =
-                $crate::obf::decode_utf8_char(INPUT, input_pos)
+            while let Some((mut code_point, new_pos)) = $crate::obf::decode_utf8_char($s, input_pos)
             {
                 input_pos = new_pos;
                 if code_point <= 0xffff {
