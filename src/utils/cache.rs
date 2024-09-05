@@ -91,3 +91,12 @@ impl DynamicCache {
         *function_address
     }
 }
+
+#[allow(non_snake_case)]
+pub fn GetFunctionAddress(
+    module_hash: Hash,
+    fn_hash: Hash,
+) -> unsafe extern "system" fn() -> isize {
+    let hmod = SusGetModuleHandle(module_hash).unwrap();
+    unsafe { SusGetProcAddress(hmod, fn_hash) }.unwrap()
+}
