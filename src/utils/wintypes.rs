@@ -21,6 +21,13 @@ pub struct UNICODE_STRING {
 }
 
 #[repr(C)]
+pub struct TEB {
+    pub Reserved1: [*mut core::ffi::c_void; 12],
+    pub ProcessEnvironmentBlock: *mut PEB,
+    pub LastErrorValue: u32,
+}
+
+#[repr(C)]
 pub struct PEB {
     pub Reserved1: [u8; 2],
     pub BeingDebugged: u8,

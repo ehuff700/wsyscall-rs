@@ -9,7 +9,7 @@ use crate::utils::wintypes::IMAGE_NT_HEADERS64 as IMAGE_NT_HEADERS;
 
 use crate::utils::wintypes::{
     FARPROC, HMODULE, IMAGE_DIRECTORY_ENTRY_EXPORT, IMAGE_DOS_HEADER, IMAGE_EXPORT_DIRECTORY,
-    LDR_DATA_TABLE_ENTRY, PEB,
+    LDR_DATA_TABLE_ENTRY, PEB, TEB,
 };
 
 use crate::wintypes::WindowsString;
@@ -32,6 +32,7 @@ fn strlen(s: *const u8) -> usize {
 }
 
 /// Retrieves the current process environment block (PEB) pointer.
+#[inline]
 pub fn NtCurrentPeb() -> *mut PEB {
     let mut peb: *mut PEB;
     unsafe {
@@ -42,6 +43,20 @@ pub fn NtCurrentPeb() -> *mut PEB {
         asm!("mov {0:e}, fs:[0x30]", out(reg) peb);
     }
     peb
+}
+
+/// Retrieves the current thread environment block (TEB) pointer.
+#[inline]
+pub fn NtCurrentTeb() -> *mut TEB {
+    let mut teb: *mut TEB;
+    unsafe {
+        #[cfg(target_arch = "x86_64")]
+        asm!("mov {0}, gs:[0x30]", out(reg) teb);
+        #[cfg(target_arch = "x86")]
+        asm!("mov {0:e}, fs:[0x18]", out(reg) teb);
+    }
+
+    teb
 }
 
 /// Retrieves the value of the environment variable with the specified key.
@@ -344,5 +359,19 @@ mod tests {
 
         let test = SusGetEnvironmentVariable("localappdata");
         assert!(test.is_none());
+    }
+
+    #[test]
+    fn test_nt_current_teb() {
+        dynamic_invoke_imp!("KERNEL32.DLL", SetLastError, (dwerrorcode: u32));
+        unsafe { SetLastError(1337) };
+        let teb = unsafe { NtCurrentTeb() };
+        assert!(!teb.is_null());
+
+        let test = unsafe { &*teb }.ProcessEnvironmentBlock;
+        assert_eq!(unsafe { NtCurrentPeb() }, test);
+
+        let last_error = unsafe { &*teb }.LastErrorValue;
+        assert_eq!(1337, last_error)
     }
 }
