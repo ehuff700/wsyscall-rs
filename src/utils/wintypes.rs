@@ -317,6 +317,34 @@ impl core::fmt::Display for WindowsString {
     }
 }
 
+/// A Windows UTF-16 string.
+///
+/// This struct is a wrapper around a slice of u16 bytes. It is intended to be used for passing around Windows strings as function arguments.
+///
+/// You can create a WindowsStr from a static slice of u16 using the `from_utf16_lit` function, which is supported in const contexts.
+pub struct WindowsStr<'a> {
+    buffer: &'a [u16],
+}
+
+impl<'a> WindowsStr<'a> {
+    /// Constructs a new windows string from a static slice of u16.
+    pub const fn from_utf16_lit(buffer: &'static [u16]) -> Self {
+        Self { buffer }
+    }
+
+    /// Returns a pointer to the underlying buffer contents.
+    pub fn as_ptr(&self) -> *const u16 {
+        self.buffer.as_ptr()
+    }
+}
+
+impl core::fmt::Display for WindowsStr<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let string = String::from_utf16_lossy(self.buffer);
+        write!(f, "{}", string)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

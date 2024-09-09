@@ -88,6 +88,38 @@ macro_rules! w {
     }};
 }
 
+#[macro_export]
+/// Creates a wide string from a UTF-8 encoded slice.
+///
+/// This widestring is returned as a `WindowsStr` type, and is null terminated (and thus safe to use for WinAPIs accepting a *const u16).
+macro_rules! widestr {
+    ($s:literal) => {{
+        const INPUT_SLICE: &[u8] = $s.as_bytes();
+        const OUTPUT_LEN: usize = $crate::obf::utf16_len(INPUT_SLICE) + 1; // +1 for null terminator
+        const OUTPUT: &[u16; OUTPUT_LEN] = {
+            let mut buffer = [0; OUTPUT_LEN];
+            let mut input_pos = 0;
+            let mut output_pos = 0;
+            while let Some((mut code_point, new_pos)) =
+                $crate::obf::decode_utf8_char(INPUT_SLICE, input_pos)
+            {
+                input_pos = new_pos;
+                if code_point <= 0xffff {
+                    buffer[output_pos] = code_point as u16;
+                    output_pos += 1;
+                } else {
+                    code_point -= 0x10000;
+                    buffer[output_pos] = 0xd800 + (code_point >> 10) as u16;
+                    output_pos += 1;
+                    buffer[output_pos] = 0xdc00 + (code_point & 0x3ff) as u16;
+                    output_pos += 1;
+                }
+            }
+            &{ buffer }
+        };
+        $crate::wintypes::WindowsStr::from_utf16_lit(OUTPUT)
+    }};
+}
 #[doc(hidden)]
 pub const fn decode_utf8_char(bytes: &[u8], mut pos: usize) -> Option<(u32, usize)> {
     if bytes.len() == pos {
@@ -179,8 +211,10 @@ impl core::fmt::Display for Hash {
 
 #[cfg(test)]
 mod tests {
+    use crate::wintypes::WindowsStr;
+
     use super::*;
-    use alloc::vec::Vec;
+    use alloc::{string::ToString, vec::Vec};
 
     extern crate std;
 
@@ -213,5 +247,11 @@ mod tests {
         let u16_bytes = input.encode_utf16().collect::<Vec<u16>>();
         let expected_hash = hash_with_salt_u16(u16_bytes.as_slice());
         assert_eq!(hash_with_salt_u8(u8_bytes), expected_hash);
+    }
+
+    #[test]
+    fn test_widestr_macro() {
+        const W: WindowsStr = widestr!("Hello World");
+        assert_eq!(W.to_string(), "Hello World\0");
     }
 }

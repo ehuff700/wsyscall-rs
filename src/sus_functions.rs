@@ -365,11 +365,11 @@ mod tests {
     fn test_nt_current_teb() {
         dynamic_invoke_imp!("KERNEL32.DLL", SetLastError, (dwerrorcode: u32));
         unsafe { SetLastError(1337) };
-        let teb = unsafe { NtCurrentTeb() };
+        let teb = NtCurrentTeb();
         assert!(!teb.is_null());
 
         let test = unsafe { &*teb }.ProcessEnvironmentBlock;
-        assert_eq!(unsafe { NtCurrentPeb() }, test);
+        assert_eq!(NtCurrentPeb(), test);
 
         let last_error = unsafe { &*teb }.LastErrorValue;
         assert_eq!(1337, last_error)
