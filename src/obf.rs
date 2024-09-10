@@ -117,7 +117,9 @@ macro_rules! widestr {
             }
             &{ buffer }
         };
-        $crate::wintypes::WindowsStr::from_utf16_lit(OUTPUT)
+        // SAFETY:
+        // This function translates valid utf-8 bytes to utf-16, therefore the resulting slice will be valid utf-16.
+        unsafe { $crate::wintypes::WindowsStr::from_utf16_unchecked(OUTPUT) }
     }};
 }
 #[doc(hidden)]
@@ -251,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_widestr_macro() {
-        const W: WindowsStr = widestr!("Hello World");
+        const W: &WindowsStr = widestr!("Hello World");
         assert_eq!(W.to_string(), "Hello World\0");
     }
 }

@@ -1,11 +1,12 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
 use core::{
+    borrow::Borrow,
     fmt::UpperHex,
-    ops::{ControlFlow, FromResidual},
+    ops::{ControlFlow, Deref, FromResidual},
 };
 
-use alloc::{string::String, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 
 pub type FARPROC = Option<unsafe extern "system" fn() -> isize>;
 pub type HMODULE = *const core::ffi::c_void;
@@ -265,48 +266,55 @@ pub struct NTERROR(pub i32);
 #[derive(Debug, Clone)]
 /// A container for a Windows Unicode string.
 ///
-/// Windows strings are typically represented as Unicode strings.
+/// WindowsStrings are typically null-terminated UTF-16 strings.
 pub struct WindowsString {
     pub(crate) bytes: Vec<u16>,
 }
 
 impl WindowsString {
-    pub(crate) fn new(bytes: Vec<u16>) -> Self {
+    /// Creates a new WindowsString from a vector of `u16`.
+    ///
+    /// The string is null-terminated internally.
+    pub fn new<I: Into<Vec<u16>>>(bytes: I) -> Self {
+        let mut bytes = bytes.into();
+        let byte_len = bytes.len(); // TODO: len check for empty
+        if !bytes[byte_len - 1] != 0 {
+            bytes.push(0); // Null-terminate the string.
+        }
+
         WindowsString { bytes }
     }
 
-    pub(crate) fn from_slice(bytes: &[u16]) -> Self {
-        WindowsString::new(bytes.to_vec())
-    }
     /// Creates a WindowsString from a UTF-8 encoded string.
+    ///
+    /// This method encodes the string as UTF-16 and null-terminates it.
     pub fn from_string(string: &str) -> Self {
-        let bytes: Vec<u16> = string.encode_utf16().collect();
-        Self::new(bytes)
-    }
-    /// Pushes a single u16 to the end of the buffer.
-    pub fn push_u16(&mut self, b: u16) {
-        self.bytes.push(b);
+        Self::new(string.encode_utf16().collect::<Vec<u16>>())
     }
 
-    /// Pushes a string to the end of the buffer.
-    pub fn push_str(&mut self, s: &str) {
-        self.bytes.extend(s.encode_utf16());
-    }
-
-    /// Gets a reference to the underlying buffer contents.
-    pub fn as_bytes(&self) -> &[u16] {
+    /// Gets a reference to the underlying buffer contents, with the null terminator
+    pub fn as_bytes_with_nul(&self) -> &[u16] {
         &self.bytes
     }
 
     /// Returns a pointer to the buffers contents.
+    #[inline]
     pub fn as_ptr(&self) -> *const u16 {
         self.bytes.as_ptr()
     }
 
-    /// Converts the WindowsString into a null-terminated UTF-16 string.
-    pub fn into_nt_pointer(mut self) -> *const u16 {
-        self.bytes.push(0); // null-terminate
-        self.bytes.as_ptr()
+    /// Returns a [WindowsStr] as an immutable reference to the WindowsString.
+    #[inline]
+    pub fn as_windows_str(&self) -> &WindowsStr {
+        // SAFETY:
+        // This is safe because WindowsStr is a wrapper around a slice of u16, and has the same memory layout.
+        unsafe { WindowsStr::from_utf16_unchecked(&self.bytes) }
+    }
+
+    /// Returns a reference to the underlying buffer contents (without the null terminator).
+    #[inline]
+    pub fn as_slice(&self) -> &[u16] {
+        &self.bytes[..self.bytes.len() - 1] // Exclude the null terminator
     }
 }
 
@@ -316,39 +324,80 @@ impl core::fmt::Display for WindowsString {
         write!(f, "{}", string)
     }
 }
-
-/// A Windows UTF-16 string.
+/// A borrowed slice of a Windows UTF-16 string.
 ///
-/// This struct is a wrapper around a slice of u16 bytes. It is intended to be used for passing around Windows strings as function arguments.
-///
-/// You can create a WindowsStr from a static slice of u16 using the `from_utf16_lit` function, which is supported in const contexts.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct WindowsStr<'a> {
-    buffer: &'a [u16],
-}
+/// This is the borrowed version of `WindowsString` and is a slice (`&[u16]`),
+/// similar to how `OsStr` works for `OsString`.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+pub struct WindowsStr([u16]);
 
-impl<'a> WindowsStr<'a> {
+impl WindowsStr {
     /// Constructs a new windows string from a static slice of u16.
-    pub const fn from_utf16_lit(buffer: &'static [u16]) -> Self {
-        Self { buffer }
+    ///
+    /// # Safety
+    /// This function assumes that the input slice is valid UTF-16.
+    #[inline]
+    pub const unsafe fn from_utf16_unchecked(buffer: &[u16]) -> &Self {
+        unsafe { &*(buffer as *const [u16] as *const WindowsStr) }
     }
 
-    /// Returns a pointer to the underlying buffer contents.
+    /// Returns a pointer to the underlying buffer contents, useful for FFI.
+    ///
+    /// Note: Modifiying the buffer may lead to undefined behavior.
+    #[inline]
     pub const fn as_ptr(&self) -> *const u16 {
-        self.buffer.as_ptr()
+        self.0.as_ptr()
+    }
+
+    /// Returns a reference to the underlying buffer contents.
+    ///
+    /// This function returns the slice with the null terminator.
+    #[inline]
+    pub const fn as_bytes_with_nul(&self) -> &[u16] {
+        &self.0
+    }
+
+    /// Returns a reference to the underlying buffer contents (without the null terminator).
+    #[inline]
+    pub fn as_bytes(&self) -> &[u16] {
+        &self.0[..self.0.len() - 1] // Exclude the null terminator
     }
 }
 
-impl core::fmt::Display for WindowsStr<'_> {
+impl core::fmt::Display for WindowsStr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let string = String::from_utf16_lossy(self.buffer);
+        let string = String::from_utf16_lossy(&self.0);
         write!(f, "{}", string)
+    }
+}
+
+impl Deref for WindowsStr {
+    type Target = [u16];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl ToOwned for WindowsStr {
+    type Owned = WindowsString;
+    fn to_owned(&self) -> Self::Owned {
+        WindowsString::new(self.0.to_vec())
+    }
+}
+
+impl Borrow<WindowsStr> for WindowsString {
+    fn borrow(&self) -> &WindowsStr {
+        self.as_windows_str()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use alloc::string::ToString;
+
     use super::*;
+    extern crate std;
 
     fn test_error() -> Result<(), NTERROR> {
         let nt_error = NTSTATUS(0x000001);
@@ -364,5 +413,12 @@ mod tests {
     fn test_nt_error() {
         assert_eq!(test_error(), Err(NTERROR(0x000001)));
         assert_eq!(test_ok(), Ok(()));
+    }
+
+    #[test]
+    fn test_win_string() {
+        let windows_string = WindowsString::from_string("test");
+        let win_borrow = windows_string.as_windows_str();
+        assert_eq!(win_borrow.to_string(), "test\0");
     }
 }

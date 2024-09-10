@@ -97,11 +97,12 @@ pub fn SusGetEnvironmentVariable(key: &str) -> Option<WindowsString> {
             environment_size / core::mem::size_of::<u16>(),
         )
     };
-    let environment_block_str = WindowsString::from_slice(environment_slice);
+
+    let environment_block_str = WindowsString::new(environment_slice);
     for key_value in environment_block_str.bytes.split(|c| *c == 0) {
         if let Some((curr_key, value)) = key_value.split_once(|c| *c == '=' as u16) {
             if curr_key.eq(&key_bytes) {
-                return Some(WindowsString::from_slice(value));
+                return Some(WindowsString::new(value));
             }
         } else {
             continue;
