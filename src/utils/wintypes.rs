@@ -322,6 +322,7 @@ impl core::fmt::Display for WindowsString {
 /// This struct is a wrapper around a slice of u16 bytes. It is intended to be used for passing around Windows strings as function arguments.
 ///
 /// You can create a WindowsStr from a static slice of u16 using the `from_utf16_lit` function, which is supported in const contexts.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct WindowsStr<'a> {
     buffer: &'a [u16],
 }
