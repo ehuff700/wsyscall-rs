@@ -334,7 +334,7 @@ impl<'a> WindowsStr<'a> {
     }
 
     /// Returns a pointer to the underlying buffer contents.
-    pub fn as_ptr(&self) -> *const u16 {
+    pub const fn as_ptr(&self) -> *const u16 {
         self.buffer.as_ptr()
     }
 }
