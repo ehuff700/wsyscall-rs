@@ -263,7 +263,7 @@ impl FromResidual<NTERROR> for NTSTATUS {
 /// Helper struct for all NTSTATUS codes other than STATUS_SUCCESS.
 pub struct NTERROR(pub i32);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 /// A container for a Windows Unicode string.
 ///
 /// WindowsStrings are typically null-terminated UTF-16 strings.
