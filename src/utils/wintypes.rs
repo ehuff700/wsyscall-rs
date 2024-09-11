@@ -278,7 +278,7 @@ impl WindowsString {
     pub fn new<I: Into<Vec<u16>>>(bytes: I) -> Self {
         let mut bytes = bytes.into();
         let byte_len = bytes.len(); // TODO: len check for empty
-        if !bytes[byte_len - 1] != 0 {
+        if bytes[byte_len - 1] != 0 {
             bytes.push(0); // Null-terminate the string.
         }
 
@@ -392,6 +392,8 @@ impl Borrow<WindowsStr> for WindowsString {
     }
 }
 
+
+
 #[cfg(test)]
 mod tests {
     use alloc::string::ToString;
@@ -419,6 +421,9 @@ mod tests {
     fn test_win_string() {
         let windows_string = WindowsString::from_string("test");
         let win_borrow = windows_string.as_windows_str();
-        assert_eq!(win_borrow.to_string(), "test\0");
+        assert_eq!(win_borrow.to_owned().to_string(), "test\0");
+
+        let winstring = win_borrow.to_owned();
+        assert_eq!(winstring.to_string(), "test\0");
     }
 }
