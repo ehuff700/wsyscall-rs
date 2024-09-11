@@ -320,7 +320,7 @@ impl WindowsString {
 
 impl core::fmt::Display for WindowsString {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let string = String::from_utf16_lossy(&self.bytes);
+        let string = String::from_utf16_lossy(self.as_slice());
         write!(f, "{}", string)
     }
 }
@@ -367,7 +367,7 @@ impl WindowsStr {
 
 impl core::fmt::Display for WindowsStr {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let string = String::from_utf16_lossy(&self.0);
+        let string = String::from_utf16_lossy(self.as_bytes());
         write!(f, "{}", string)
     }
 }
@@ -391,8 +391,6 @@ impl Borrow<WindowsStr> for WindowsString {
         self.as_windows_str()
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {
