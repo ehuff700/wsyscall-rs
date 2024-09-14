@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::arch::asm;
 
@@ -175,6 +176,9 @@ pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: Hash) -> FARPROC {
         // Construct a hash of the current function name.
         let name_ptr = module.add(*name_base.add(i) as usize).cast::<u8>();
         let name_bytes = core::slice::from_raw_parts(name_ptr, strlen(name_ptr));
+        let string = unsafe { String::from_utf8_unchecked(name_bytes.to_vec()) };
+        let name_str = string.as_str();
+
         let hash = hash_with_salt_u8(name_bytes);
 
         if *fn_name == hash {
@@ -374,5 +378,16 @@ mod tests {
 
         let last_error = unsafe { &*teb }.LastErrorValue;
         assert_eq!(1337, last_error)
+    }
+
+    #[test]
+    fn test_gdi32_load() {
+        dynamic_invoke_imp!("KERNEL32.DLL", LoadLibraryA, (lplibname: *const u8) -> *mut core::ffi::c_void);
+        unsafe { LoadLibraryA(c"user32.dll".as_ptr() as _) };
+        let user32 = SusGetModuleHandle(hash!("user32.dll"));
+        assert_ne!(user32, None);
+        let create_compatible_dc =
+            unsafe { SusGetProcAddress(user32.unwrap(), hash!("ReleaseDC")) };
+        assert_ne!(create_compatible_dc, None);
     }
 }
