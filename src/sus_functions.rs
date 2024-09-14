@@ -176,8 +176,6 @@ pub unsafe fn SusGetProcAddress(module: HMODULE, fn_name: Hash) -> FARPROC {
         // Construct a hash of the current function name.
         let name_ptr = module.add(*name_base.add(i) as usize).cast::<u8>();
         let name_bytes = core::slice::from_raw_parts(name_ptr, strlen(name_ptr));
-        let string = unsafe { String::from_utf8_unchecked(name_bytes.to_vec()) };
-        let name_str = string.as_str();
 
         let hash = hash_with_salt_u8(name_bytes);
 
