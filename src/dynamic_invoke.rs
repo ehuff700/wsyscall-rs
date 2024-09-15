@@ -22,8 +22,11 @@ macro_rules! dynamic_invoke_imp {
     ($module_name:literal, $fnname:ident, ($($field_name:ident: $field_type:ty),*) -> $ret:ty) => {
         #[allow(non_snake_case)]
         pub unsafe fn $fnname($($field_name: $field_type),*) -> $ret {
+            static MODULE_HASH: $crate::obf::Hash = $crate::hash!($module_name);
+            static FUNCTION_HASH: $crate::obf::Hash = $crate::hash!($fnname);
+
             type InternalType = unsafe extern "system" fn($($field_name: $field_type),*) -> $ret;
-            let fn_ptr = $crate::DYNAMIC_CACHE.lock().get_function_address($crate::hash!($module_name), $crate::hash!($fnname));
+            let fn_ptr = $crate::DYNAMIC_CACHE.lock().get_function_address(MODULE_HASH, FUNCTION_HASH);
             let transmuted_fn: InternalType = unsafe { core::mem::transmute(fn_ptr) };
             transmuted_fn($($field_name),*)
         }
@@ -31,8 +34,11 @@ macro_rules! dynamic_invoke_imp {
     ($module_name:literal, $fnname:ident, ($($field_name:ident: $field_type:ty),*)) => {
         #[allow(non_snake_case)]
         pub unsafe fn $fnname($($field_name: $field_type),*) {
+            static MODULE_HASH: $crate::obf::Hash = $crate::hash!($module_name);
+            static FUNCTION_HASH: $crate::obf::Hash = $crate::hash!($fnname);
+
             type InternalType = unsafe extern "system" fn($($field_name: $field_type),*);
-            let fn_ptr = $crate::DYNAMIC_CACHE.lock().get_function_address($crate::hash!($module_name), $crate::hash!($fnname));
+            let fn_ptr = $crate::DYNAMIC_CACHE.lock().get_function_address(MODULE_HASH, FUNCTION_HASH);
             let transmuted_fn: InternalType = unsafe { core::mem::transmute(fn_ptr) };
             transmuted_fn($($field_name),*);
         }
@@ -63,19 +69,25 @@ macro_rules! dynamic_invoke_imp {
 /// ```
 macro_rules! dynamic_invoke_imp_no_alloc {
     ($module_name:literal, $fnname:ident, ($($field_name:ident: $field_type:ty),*) -> $ret:ty) => {
-        #[allow(non_snake_case)]
+        #[allow(non_snake_case, clippy::too_many_arguments)]
         pub unsafe fn $fnname($($field_name: $field_type),*) -> $ret {
+            static MODULE_HASH: $crate::obf::Hash = $crate::hash!($module_name);
+            static FUNCTION_HASH: $crate::obf::Hash = $crate::hash!($fnname);
+
             type InternalType = unsafe extern "system" fn($($field_name: $field_type),*) -> $ret;
-            let fn_ptr = $crate::cache::GetFunctionAddress($crate::hash!($module_name), $crate::hash!($fnname));
+            let fn_ptr = $crate::cache::GetFunctionAddress(MODULE_HASH, FUNCTION_HASH);
             let transmuted_fn: InternalType = unsafe { core::mem::transmute(fn_ptr) };
             transmuted_fn($($field_name),*)
         }
     };
     ($module_name:literal, $fnname:ident, ($($field_name:ident: $field_type:ty),*)) => {
-        #[allow(non_snake_case)]
+        #[allow(non_snake_case, clippy::too_many_arguments)]
         pub unsafe fn $fnname($($field_name: $field_type),*) {
+            static MODULE_HASH: $crate::obf::Hash = $crate::hash!($module_name);
+            static FUNCTION_HASH: $crate::obf::Hash = $crate::hash!($fnname);
+
             type InternalType = unsafe extern "system" fn($($field_name: $field_type),*);
-            let fn_ptr = $crate::cache::GetFunctionAddress($crate::hash!($module_name), $crate::hash!($fnname));
+            let fn_ptr = $crate::cache::GetFunctionAddress(MODULE_HASH, FUNCTION_HASH);
             let transmuted_fn: InternalType = unsafe { core::mem::transmute(fn_ptr) };
             transmuted_fn($($field_name),*);
         }

@@ -47,10 +47,13 @@ macro_rules! syscall {
     ($ssn:ident) => {{
         let status: i32;
         let ssn = $ssn.ssn;
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "syscall",
-            out("rcx") _,
-            out("r11") _,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -59,12 +62,14 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr) => {{
         let status: i32;
         let ssn = $ssn.ssn;
+        let _rcxunused: u64;
+        let _r11unused: u64;
 
         core::arch::asm!(
             "syscall",
-            inout("r10") $field1 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -73,12 +78,15 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr) => {{
         let status: i32;
         let ssn = $ssn.ssn;
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "syscall",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -87,13 +95,16 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr) => {{
         let status: i32;
         let ssn = $ssn.ssn;
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "syscall",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            in("r8") $field3,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -102,14 +113,17 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr) => {{
         let status: i32;
         let ssn = $ssn.ssn;
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "syscall",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            inout("r9") $field4 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            in("r8") $field3,
+            in("r9") $field4,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -118,6 +132,9 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr, $($extra_fields:expr),+) => {{
         let status: i32;
         let ssn = $ssn.ssn;
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         // Reverse the order of extra fields and push them onto the stack
         syscall!(@reverse_and_push $($extra_fields),+);
 
@@ -125,13 +142,13 @@ macro_rules! syscall {
             "sub rsp, {stack_alloc}",
             "syscall",
             "add rsp, {stack_dealloc}",
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            inout("r9") $field4 => _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            in("r8") $field3,
+            in("r9") $field4,
             inlateout("rax") ssn => status,
-            out("rcx") _,
-            out("r11") _,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             stack_alloc = const $crate::syscall::BASE_STACK_ALLOC + 8, // +8 for the ret address
             stack_dealloc = const $crate::syscall::BASE_STACK_ALLOC + 8 + (8 * syscall!(@count_fields $($extra_fields),+)),
             options(preserves_flags),
@@ -177,12 +194,15 @@ macro_rules! syscall {
     // Base case: no arguments (just SSN)
     ($ssn:ident) => {{
         let status: i32;
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
-            out("rcx") _,
-            out("r11") _,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -191,12 +211,15 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr) => {{
         let status: i32;
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
-            inout("r10") $field1 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -205,13 +228,16 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr) => {{
         let status: i32;
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -220,15 +246,17 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr) => {{
         let status: i32;
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
+        let _rcxunused: u64;
+        let _r11unused: u64;
 
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            in("r8") $field3,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -237,15 +265,18 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr) => {{
         let status: i32;
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         core::arch::asm!(
             "call {}",
             in(reg) syscall_address,
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            inout("r9") $field4 => _,
-            out("rcx") _,
-            out("r11") _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            in("r8") $field3,
+            in("r9") $field4,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             inlateout("rax") ssn => status,
             options(nostack, preserves_flags)
         );
@@ -254,6 +285,9 @@ macro_rules! syscall {
     ($ssn:ident, $field1:expr, $field2:expr, $field3:expr, $field4:expr, $($extra_fields:expr),+) => {{
         let status: i32;
         let (ssn, syscall_address) = ($ssn.ssn, *$ssn.syscall_address);
+        let _rcxunused: u64;
+        let _r11unused: u64;
+
         // Reverse the order of extra fields and push them onto the stack
         syscall!(@reverse_and_push $($extra_fields),+);
 
@@ -262,13 +296,13 @@ macro_rules! syscall {
             "call {}",
             "add rsp, {stack_dealloc}",
             in(reg) syscall_address,
-            inout("r10") $field1 => _,
-            inout("rdx") $field2 => _,
-            inout("r8") $field3 => _,
-            inout("r9") $field4 => _,
+            in("r10") $field1,
+            in("rdx") $field2,
+            in("r8") $field3,
+            in("r9") $field4,
             inlateout("rax") ssn => status,
-            out("rcx") _,
-            out("r11") _,
+            out("rcx") _rcxunused,
+            out("r11") _r11unused,
             stack_alloc = const $crate::syscall::BASE_STACK_ALLOC, // no need to add +8, as call pushes the ret address to the stack
             stack_dealloc = const $crate::syscall::BASE_STACK_ALLOC + (8 * syscall!(@count_fields $($extra_fields),+)),
             options(preserves_flags),
@@ -338,9 +372,10 @@ macro_rules! syscall_imp {
         #[allow(non_snake_case, clippy::too_many_arguments)]
         #[must_use = "NTSTATUS values must be propogated up to the caller with `?` or handled appropriately."]
         pub unsafe extern "system" fn $syscall($($field_name: $field_type),*) -> $crate::wintypes::NTSTATUS {
+            static HASH: $crate::obf::Hash = $crate::hash!($syscall);
             let syscall = {
                 $crate::SSN_CACHE.lock()
-                    .get_ssn_for_hash($crate::hash!($syscall))
+                    .get_ssn_for_hash(HASH)
             };
             $crate::wintypes::NTSTATUS($crate::syscall!(syscall, $($field_name),*))
         }
