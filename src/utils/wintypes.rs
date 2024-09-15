@@ -431,9 +431,9 @@ mod tests {
     fn test_win_string() {
         let windows_string = WindowsString::from_string("test");
         let win_borrow = windows_string.as_windows_str();
-        assert_eq!(win_borrow.to_owned().to_string(), "test\0");
+        assert_eq!(win_borrow.to_owned().to_string(), "test");
 
         let winstring = win_borrow.to_owned();
-        assert_eq!(winstring.to_string(), "test\0");
+        assert_eq!(winstring.to_string(), "test");
     }
 }

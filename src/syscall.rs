@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_syscall_imp() {
-        syscall_imp!(NtQuerySystemInformation,(
+        syscall_imp!(NtQuerySystemInformation, (
             SystemInformationClass: u32,
             SystemInformation: *mut core::ffi::c_void,
             SystemInformationLength: u32,

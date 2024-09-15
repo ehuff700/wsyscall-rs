@@ -254,6 +254,6 @@ mod tests {
     #[test]
     fn test_widestr_macro() {
         const W: &WindowsStr = widestr!("Hello World");
-        assert_eq!(W.to_string(), "Hello World\0");
+        assert_eq!(W.to_string(), "Hello World");
     }
 }
