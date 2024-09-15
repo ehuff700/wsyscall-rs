@@ -33,11 +33,23 @@ pub struct PEB {
     pub Reserved1: [u8; 2],
     pub BeingDebugged: u8,
     pub Reserved2: [u8; 1],
-    pub Reserved3: [*mut core::ffi::c_void; 2],
+    pub Reserved3: *mut core::ffi::c_void,
+    pub ImageBaseAddress: *mut core::ffi::c_void,
     pub Ldr: *mut PEB_LDR_DATA,
     pub ProcessParameters: *mut core::ffi::c_void,
     pub SubSystemData: *mut core::ffi::c_void,
     pub ProcessHeap: *mut core::ffi::c_void,
+    pub FastPebLock: *mut RTL_CRITICAL_SECTION,
+}
+
+#[repr(C)]
+pub struct RTL_CRITICAL_SECTION {
+    pub DebugInfo: *mut core::ffi::c_void,
+    pub LockCount: core::ffi::c_long,
+    pub RecursionCount: core::ffi::c_long,
+    pub OwningThread: *mut core::ffi::c_void,
+    pub LockSemaphore: *mut core::ffi::c_void,
+    pub SpinCount: usize,
 }
 
 #[repr(C)]
